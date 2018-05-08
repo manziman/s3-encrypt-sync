@@ -59,6 +59,11 @@ if [ ! -f ${SCRIPT_DIR}/s3_sync.config  ]; then
         if ! [ s3_bucket ]; then
             echo "Please enter a bucket name."; continue;
         else
+            aws s3 ls s3://${s3_bucket} --profile ${profile} >> /dev/null
+            if ! [ $? == 0 ]; then
+                echo "Unable to find/access bucket ${s3_bucket}"
+                continue
+            fi
             break
         fi
     done
