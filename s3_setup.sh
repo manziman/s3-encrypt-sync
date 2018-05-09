@@ -97,20 +97,23 @@ fi
 echo "Reading config file ${SCRIPT_DIR}/s3_sync.config..."
 source ${SCRIPT_DIR}/s3_sync.config
 
-# Create cronjob if needed
-while true; do
-    read -p "Would you like to create a cronjob for the sync?(Y/n)" yn
-    case $yn in
-        [Nn]* ) break;;
-        [Yy]* ) echo "Please provide cron timing information:";;
-            * ) echo "Please input yes or no."; continue;;
-    esac
-    read -p "min: " min
-    read -p "hour: " hour
-    read -p "day: " day
-    read -p "month: " month
-    read -p "weekday: " weekday
-done
+if ! [ $(which cron) ]; then
+    echo "systemd timer here"
+else
+    while true; do
+        read -p "Would you like to create a cronjob for the sync?(Y/n)" yn
+        case $yn in
+            [Nn]* ) break;;
+            [Yy]* ) echo "Please provide cron timing information:";;
+                * ) echo "Please input yes or no."; continue;;
+        esac
+        read -p "min: " min
+        read -p "hour: " hour
+        read -p "day: " day
+        read -p "month: " month
+        read -p "weekday: " weekday
+    done
+fi
 
 # Iterate through directories and sync
 IFS=","
