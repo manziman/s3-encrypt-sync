@@ -97,22 +97,79 @@ fi
 echo "Reading config file ${SCRIPT_DIR}/s3_sync.config..."
 source ${SCRIPT_DIR}/s3_sync.config
 
-if ! [ $(which cron) ]; then
-    echo "systemd timer here"
-else
-    while true; do
-        read -p "Would you like to create a cronjob for the sync?(Y/n)" yn
-        case $yn in
-            [Nn]* ) break;;
-            [Yy]* ) echo "Please provide cron timing information:";;
-                * ) echo "Please input yes or no."; continue;;
+# Select cron or systemd timer
+while true; do
+    read -p "Would you like to run sync on a schedule?(Y/n)" yn
+    case $yn in
+        [Nn]* ) break;;
+        [Yy]* ) break;;
+            * ) echo "Please input yes or no."; continue;;
+    esac
+done
+
+PS3="Please select either systemd timers or cron: "
+options=("systemd Timer" "cronjob" "cancel")
+select opt in "${options[@]}"
+do
+    case $opt in
+        "systemd Timer")
+            echo "Using systemd Timer"
+            selection="timer"
+            break
+            ;;
+        "cronjob")
+            echo "Using cronjob"
+            selection="cron"
+            break
+            ;;
+        "cancel")
+            break
+            ;;
+        *) echo "invalid option";;
+    esac
+done
+
+# Get input for cron or timer
+if [ $seleciton == "cron" ]; then
+    read -p "min: " min
+    read -p "hour: " hour
+    read -p "day: " day
+    read -p "month: " month
+    read -p "weekday: " weekday
+elif [ $selection == "timer" ]; then
+    PS3="Please select a frequency (or custom): "
+    options=("minutely" "hourly" "daily" "monthly" "weekly" "custom" "cancel")
+    select opt in "${options[@]}"
+    do
+        case $opt in
+            "minutely")
+                datestring="*-*-* *:*:00"
+                break
+                ;;
+            "hourly")
+                datestring="*-*-* *:00:00"
+                break
+                ;;
+            "daily")
+                datestring="*-*-* 00:00:00"
+                break
+                ;;
+            "monthly")
+                datestring="*-*-01 00:00:00"
+                break
+                ;;
+            "weekly")
+                datestring="Mon *-*-* 00:00:00"
+                break
+                ;;
+            "custom")
+                read -p "Please enter custom datestring (DOW YR-MO-DAY HR:MIN:SEC): " datestring
+                break
+                ;;
+            *) echo "invalid option";;
         esac
-        read -p "min: " min
-        read -p "hour: " hour
-        read -p "day: " day
-        read -p "month: " month
-        read -p "weekday: " weekday
     done
+    sudo bash -c "echo -e \"[Unit]\r\nDescription=Run backup to S3 on ${DIRECTORIES}\r\n\r\n[Timer]\r\nOnCalendar=${datestring}\r\nUnit=s3_backup.service\r\n\r\n[Install]\r\nWantedBy=timers.target\" > /usr/lib/systemd/system/s3_backup.timer"
 fi
 
 # Iterate through directories and sync
