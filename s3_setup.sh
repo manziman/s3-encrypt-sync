@@ -170,6 +170,18 @@ elif [ $selection == "timer" ]; then
         esac
     done
     sudo bash -c "echo -e \"[Unit]\r\nDescription=Run backup to S3 on ${DIRECTORIES}\r\n\r\n[Timer]\r\nOnCalendar=${datestring}\r\nUnit=s3_backup.service\r\n\r\n[Install]\r\nWantedBy=timers.target\" > /usr/lib/systemd/system/s3_backup.timer"
+    sudo bash -c "echo -e \"[Unit]\r\nDescription=Run backup to S3 on ${DIRECTORIES}\r\n\r\n[Service]\r\nType=simple\r\nExecStart=${SCRIPT_DIR}/s3_sync.sh\r\nUser=${usr}\r\n\r\n[Install]\r\nWantedBy=timers.target\" > /usr/lib/systemd/system/s3_backup.service"
+
+    sudo systemctl enable backup.timer
+    
+    while true; do
+        read -p "Would you like to start now?(Y/n)" yn
+        case $yn in
+            [Nn]* ) break;;
+            [Yy]* ) sudo systemctl start; break;;
+                * ) echo "Please input yes or no."; continue;;
+        esac
+    done
 fi
 
 # Iterate through directories and sync
