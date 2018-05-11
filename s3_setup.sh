@@ -38,10 +38,11 @@ if [ ! -f ${SCRIPT_DIR}/s3_sync.config  ]; then
             * ) echo "Please input yes or no."; continue;;
         esac
         if [ $profile  ]; then
-            grep "\[profile ${profile}\]" /home/${usr}/.aws/config
+            grep "\[profile ${profile}\]" /home/${usr}/.aws/config >> /dev/null
             if ! [ $? == 0 ]; then
                 echo "Profile ${profile} not found!"; continue;
             fi
+            break
         else
             aws configure --profile $newprofile
             if ! [ $? == 0  ]; then
@@ -90,6 +91,7 @@ if [ ! -f ${SCRIPT_DIR}/s3_sync.config  ]; then
     echo "DIRECTORIES=\"${DIRS[@]}\"" >> ${SCRIPT_DIR}/s3_sync.config
     echo "# [aws]" >> ${SCRIPT_DIR}/s3_sync.config
     echo "AWS_PROFILE=\"${profile}\"" >> ${SCRIPT_DIR}/s3_sync.config
+    echo "AWS_CONFIG_FILE=\"/home/${profile}/.aws/config\"" >> ${SCRIPT_DIR}/s3_sync.config
     echo "S3_BUCKET=\"${s3_bucket}\"" >> ${SCRIPT_DIR}/s3_sync.config
 fi
 
@@ -101,7 +103,7 @@ source ${SCRIPT_DIR}/s3_sync.config
 while true; do
     read -p "Would you like to run sync on a schedule?(Y/n)" yn
     case $yn in
-        [Nn]* ) break;;
+        [Nn]* ) exit;;
         [Yy]* ) break;;
             * ) echo "Please input yes or no."; continue;;
     esac
@@ -123,6 +125,7 @@ do
             break
             ;;
         "cancel")
+            selection="none"
             break
             ;;
         *) echo "invalid option";;
@@ -130,13 +133,13 @@ do
 done
 
 # Get input for cron or timer
-if [ $seleciton == "cron" ]; then
+if [ "$selection" == "cron" ]; then
     read -p "min: " min
     read -p "hour: " hour
     read -p "day: " day
     read -p "month: " month
     read -p "weekday: " weekday
-elif [ $selection == "timer" ]; then
+elif [ "$selection" == "timer" ]; then
     PS3="Please select a frequency (or custom): "
     options=("minutely" "hourly" "daily" "monthly" "weekly" "custom" "cancel")
     select opt in "${options[@]}"
@@ -172,20 +175,14 @@ elif [ $selection == "timer" ]; then
     sudo bash -c "echo -e \"[Unit]\r\nDescription=Run backup to S3 on ${DIRECTORIES}\r\n\r\n[Timer]\r\nOnCalendar=${datestring}\r\nUnit=s3_backup.service\r\n\r\n[Install]\r\nWantedBy=timers.target\" > /usr/lib/systemd/system/s3_backup.timer"
     sudo bash -c "echo -e \"[Unit]\r\nDescription=Run backup to S3 on ${DIRECTORIES}\r\n\r\n[Service]\r\nType=simple\r\nExecStart=${SCRIPT_DIR}/s3_sync.sh\r\nUser=${usr}\r\n\r\n[Install]\r\nWantedBy=timers.target\" > /usr/lib/systemd/system/s3_backup.service"
 
-    sudo systemctl enable backup.timer
+    sudo systemctl enable s3_backup.timer
     
     while true; do
-        read -p "Would you like to start now?(Y/n)" yn
+        read -p "Would you like to start the service now?(Y/n)" yn
         case $yn in
             [Nn]* ) break;;
-            [Yy]* ) sudo systemctl start; break;;
+            [Yy]* ) sudo systemctl start s3_backup.timer; break;;
                 * ) echo "Please input yes or no."; continue;;
         esac
     done
 fi
-
-# Iterate through directories and sync
-IFS=","
-for d in $DIRECTORIES; do
-    echo $d
-done
